@@ -1,0 +1,114 @@
+<html>
+<head>
+<title>VenuePiece Graph</title>
+<style>
+    canvas,div
+    {
+        position : absolute;
+    }
+</style>
+</head>
+<body>
+    <canvas id="canvas" width="100%" height="100%"></canvas>
+    <div id="info" class="info"></div>
+<script>
+    /**
+     @author    yoga1290@gmail.com
+     */
+    var accessToken=null; //AppEngine will fill this!
+    
+    if(accessToken==null || undefined==accessToken)
+    		top.location.href="https://foursquare.com/oauth2/authenticate?client_id=QZPL2PBSUACGD50DLA1RTOJTUAUD5YE1DN1F53VSUFG44RHW&response_type=code&redirect_uri=http://yoga1290.appspot.com/VenuePieceGraph/oauth/foursquare/callback/";
+    var venues=[],colorsUsed={},max_checkinsCount=0,sum_beenHere=0,sum_checkinsCount=0,max_beenHere=0,debug;
+    function start()
+    {
+        document.getElementById("info").innerHTML="Loading 4Sqr data...";
+        document.getElementById("info").style.top=0;
+        document.getElementById("info").style.left=0;
+        
+        var xhr=new XMLHttpRequest();
+        var today=new Date();
+        var v=today.getYear()+"";
+        v+=((today.getMonth()+"").length<2) ? ("0"+today.getMonth()):today.getMonth();
+        v+=((today.getDate()+"").length<2) ? ("0"+today.getDate()):today.getDate();
+        xhr.open("GET","https://api.foursquare.com/v2/users/self/venuehistory?oauth_token="+accessToken+"&v="+v,true);
+        xhr.onload=function(){
+            var v=JSON.parse(this.responseText)['response']['venues']['items'];
+            var curColor="",info="";
+            for(var i=0;i<v.length;i++)
+            {
+                sum_beenHere+=v[i]['beenHere'];
+                max_beenHere=Math.max(max_beenHere,v[i]['beenHere']);
+                
+                sum_checkinsCount+=v[i]['venue']['stats']['checkinsCount'];
+                max_checkinsCount=Math.max(max_checkinsCount,v[i]['venue']['stats']['checkinsCount']);
+                
+                curColor="#"+(Math.floor(Math.random()*parseInt("FFFFFF",16))).toString(16).toUpperCase();
+                while(colorsUsed[curColor]!=null)
+                    curColor="#"+(Math.floor(Math.random()*parseInt("FFFFFF",16))).toString(16).toUpperCase();
+                
+//                venues.push([v[i]['beenHere'],v[i]['venue']['stats']['checkinsCount'],v[i]['venue']['name']]);
+                venues.push([v[i]['venue']['stats']['checkinsCount'],v[i]['beenHere'],curColor,v[i]['venue']['name']]);
+                info+="<a href='https://foursquare.com/v/"+v[i]['venue']['id']+"'><font color='"+curColor+"'>"+v[i]['venue']['name']+"</font></a> ";
+            }            
+            venues.sort();
+            document.getElementById("info").innerHTML="Drawing Canvas…";
+            drawChart();
+            document.getElementById("info").innerHTML=info;
+        };
+        xhr.send();
+    }
+    
+    
+    function        drawChart()
+    {
+        
+        var i;
+        var canvas = document.getElementById("canvas");
+        
+        canvas.style.top=0;
+        canvas.style.left=0;
+        canvas.width=window.screen.width;
+        canvas.height=window.screen.height;
+        
+        var context = canvas.getContext("2d");
+        var centerX = canvas.width / 2;
+        var centerY = canvas.height / 2;
+        var radius = Math.min(centerX,centerY);
+        var startingAngle,endingAngle;
+        var lastAngle = 0;
+        var counterclockwise = false;
+        
+        // Draw the 1s with bigger area first
+        for(i=venues.length-1;i>=0;i--)
+        {
+            radius=Math.min(centerX,centerY)*venues[i][1]/max_beenHere;
+            
+            context.beginPath();
+            startingAngle=lastAngle;
+            endingAngle=startingAngle+Math.PI*2*(venues[i][0]/sum_checkinsCount);
+            
+            context.arc(centerX, centerY, radius, startingAngle, endingAngle, counterclockwise);
+            context.closePath();
+            
+            
+            context.fillStyle=venues[i][2];
+            context.fill();
+            
+            //triangle
+            context.beginPath(); // begin custom shape
+            context.moveTo(centerX, centerY);
+            context.lineTo(centerX+Math.cos(startingAngle)*radius ,centerY+Math.sin(startingAngle)*radius);
+            context.lineTo(centerX+Math.cos(endingAngle)*radius ,centerY+Math.sin(endingAngle)*radius);
+            context.lineTo(centerX,centerY);
+            context.closePath();
+            context.fill();
+            lastAngle=endingAngle;
+        }
+//        window.onresize=drawChart();
+    }
+    
+    start();
+</script>
+</body>
+</html>
